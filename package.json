@@ -1,0 +1,21 @@
+{
+  "name": "gestao-pedidos-backend",
+  "version": "1.0.0",
+  "description": "Backend (microsserviços) do laboratório de Gestão de Pedidos - ECOS02A, UNIFEI",
+  "private": true,
+  "scripts": {
+    "install:all": "npm install --prefix produtos-service && npm install --prefix pedidos-service && npm install --prefix api-gateway",
+    "dev": "concurrently -n produtos,pedidos,gateway -c blue,magenta,green \"npm run dev --prefix produtos-service\" \"npm run dev --prefix pedidos-service\" \"npm run dev --prefix api-gateway\"",
+    "build": "npm run build --prefix produtos-service && npm run build --prefix pedidos-service && npm run build --prefix api-gateway",
+    "start": "concurrently -n produtos,pedidos,gateway -c blue,magenta,green \"npm start --prefix produtos-service\" \"npm start --prefix pedidos-service\" \"npm start --prefix api-gateway\"",
+    "typecheck": "npm run typecheck --prefix produtos-service && npm run typecheck --prefix pedidos-service && npm run typecheck --prefix api-gateway",
+    "smoke": "bash scripts/smoke-test.sh"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^10.0.6"
+  },
+  "engines": {
+    "node": ">=22.15.0"
+  }
+}
