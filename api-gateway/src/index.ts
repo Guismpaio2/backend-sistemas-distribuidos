@@ -8,6 +8,7 @@ import {
   PORT,
   PRODUTOS_SERVICE_URL,
 } from "./config.js";
+import { log } from "./logger.js";
 import { requestId } from "./middleware/requestId.js";
 
 const app = express();
@@ -38,8 +39,9 @@ function criarProxy(prefixo: string, destino: string, nomeServico: string) {
     pathFilter: prefixo,
     pathRewrite: { [`^${prefixo}`]: prefixo.replace("/api", "") },
     on: {
-      error: (err, _req, res) => {
-        console.error(`[api-gateway] falha ao contatar ${nomeServico}:`, (err as Error).message);
+      error: (err, req, res) => {
+        const id = String((req as { headers: Record<string, unknown> }).headers["x-request-id"] ?? "");
+        log.erro(id, `${nomeServico} indisponível (${(err as NodeJS.ErrnoException).code ?? err.message}). Respondendo 503.`);
         // `res` pode ser um Socket em upgrades de WebSocket; aqui só tratamos HTTP.
         if ("writeHead" in res && !res.headersSent) {
           res.writeHead(503, { "Content-Type": "application/json" });
@@ -95,11 +97,11 @@ app.use((_req, res) => {
 // No Express 5, o callback do listen recebe o erro (ex.: porta já em uso).
 app.listen(PORT, (erro?: Error) => {
   if (erro) {
-    console.error(`[api-gateway] não foi possível iniciar na porta ${PORT}:`, erro.message);
-    console.error("Dica: libere a porta ou defina outra com a variável PORT.");
+    log.erro(undefined, `não foi possível iniciar na porta ${PORT}: ${erro.message}`);
+    log.info(undefined, "Dica: libere a porta ou defina outra com a variável PORT.");
     process.exit(1);
   }
-  console.log(`[api-gateway] rodando em http://localhost:${PORT}`);
-  console.log(`[api-gateway]   /api/produtos -> ${PRODUTOS_SERVICE_URL}`);
-  console.log(`[api-gateway]   /api/pedidos  -> ${PEDIDOS_SERVICE_URL}`);
+  log.info(undefined, `▶ rodando em http://localhost:${PORT}`);
+  log.info(undefined, `  /api/produtos → ${PRODUTOS_SERVICE_URL}`);
+  log.info(undefined, `  /api/pedidos  → ${PEDIDOS_SERVICE_URL}`);
 });
