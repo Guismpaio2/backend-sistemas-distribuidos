@@ -1,5 +1,6 @@
 import express from "express";
 import type { NextFunction, Request, Response } from "express";
+import { log } from "./logger.js";
 import { requestLogger } from "./middleware/requestLogger.js";
 import { produtosRouter } from "./routes/produtos.js";
 
@@ -26,16 +27,16 @@ app.use((_req, res) => {
 
 // Tratador de erros central (4 parâmetros = middleware de erro do Express).
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-  console.error("[produtos-service] erro não tratado:", err);
+  log.erro(res.locals.requestId, `erro não tratado: ${err.message}`);
   res.status(500).json({ erro: "Erro interno no produtos-service." });
 });
 
 // No Express 5, o callback do listen recebe o erro (ex.: porta já em uso).
 app.listen(PORT, (erro?: Error) => {
   if (erro) {
-    console.error(`[produtos-service] não foi possível iniciar na porta ${PORT}:`, erro.message);
-    console.error("Dica: libere a porta ou defina outra com a variável PORT.");
+    log.erro(undefined, `não foi possível iniciar na porta ${PORT}: ${erro.message}`);
+    log.info(undefined, "Dica: libere a porta ou defina outra com a variável PORT.");
     process.exit(1);
   }
-  console.log(`[produtos-service] rodando em http://localhost:${PORT}`);
+  log.info(undefined, `▶ rodando em http://localhost:${PORT}`);
 });
