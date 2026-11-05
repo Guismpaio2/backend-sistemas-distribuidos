@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { buscarPorId, produtos } from "../data/produtos.js";
+import { log } from "../logger.js";
 
 export const produtosRouter = Router();
 
@@ -64,6 +65,7 @@ produtosRouter.post("/:id/estoque/baixa", (req, res) => {
   // acima e a subtração abaixo não podem ser intercaladas por outra requisição.
   // (Em um banco real, isso exigiria uma transação ou um UPDATE condicional.)
   produto.estoque -= quantidade;
+  log.ok(res.locals.requestId, `estoque do produto #${id}: ${produto.estoque + quantidade} → ${produto.estoque}`);
   res.json(produto);
 });
 
@@ -89,5 +91,6 @@ produtosRouter.post("/:id/estoque/devolucao", (req, res) => {
   }
 
   produto.estoque += quantidade;
+  log.aviso(res.locals.requestId, `compensação: estoque do produto #${id}: ${produto.estoque - quantidade} → ${produto.estoque}`);
   res.json(produto);
 });

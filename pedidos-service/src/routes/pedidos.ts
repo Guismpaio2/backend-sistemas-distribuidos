@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { baixarEstoque, buscarProduto, devolverEstoque } from "../clients/produtosClient.js";
 import { buscarPedido, criarPedido, pedidos } from "../data/pedidos.js";
+import { log } from "../logger.js";
 
 export const pedidosRouter = Router();
 
@@ -75,14 +76,16 @@ pedidosRouter.post("/", async (req, res) => {
       status: "CONFIRMADO",
     });
 
-    console.log(
-      `[pedidos-service] [${requestId}] pedido #${pedido.id} criado: ${quantidade}x ${produto.nome}`,
+    log.ok(
+      requestId,
+      `pedido #${pedido.id} criado: ${quantidade}× ${produto.nome} (${pedido.total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })})`,
     );
     res.status(201).json(pedido);
   } catch (err) {
     // Transação compensatória: devolve o estoque que já tinha sido baixado.
-    await devolverEstoque(productId, quantidade, requestId).catch((e) =>
-      console.error(`[pedidos-service] [${requestId}] FALHA ao compensar estoque:`, e),
+    log.aviso(requestId, "falha ao gravar o pedido: devolvendo o estoque (compensação)");
+    await devolverEstoque(productId, quantidade, requestId).catch((e: Error) =>
+      log.erro(requestId, `FALHA ao compensar estoque: ${e.message}`),
     );
     throw err;
   }
