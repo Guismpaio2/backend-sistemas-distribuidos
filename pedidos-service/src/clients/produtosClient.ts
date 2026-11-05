@@ -1,4 +1,5 @@
 import axios, { AxiosError } from "axios";
+import { log } from "../logger.js";
 
 /**
  * Cliente HTTP do produtos-service.
@@ -50,22 +51,49 @@ export class ServicoIndisponivelError extends Error {
   }
 }
 
-/** Repassa o id de rastreio para que o mesmo valor apareça nos logs dos dois serviços. */
-function cabecalhos(requestId: string) {
-  return { "x-request-id": requestId };
-}
-
 /** Falha de rede (serviço fora do ar, timeout, DNS) ou resposta 5xx do outro lado. */
 function ehIndisponibilidade(err: AxiosError): boolean {
   return !err.response || err.response.status >= 500;
 }
 
+/**
+ * Faz UMA chamada HTTP ao produtos-service e a registra no log
+ * ("↳ chama produtos-service: GET /produtos/2 → 200 (4ms)").
+ *
+ * O `x-request-id` é repassado para que o mesmo id apareça nos logs dos dois
+ * serviços. Os erros continuam sendo lançados; quem chama decide como traduzi-los.
+ */
+async function chamar<T>(
+  requestId: string,
+  metodo: "GET" | "POST",
+  caminho: string,
+  corpo?: unknown,
+) {
+  const inicio = Date.now();
+  try {
+    const resposta = await http.request<T>({
+      method: metodo,
+      url: caminho,
+      data: corpo,
+      headers: { "x-request-id": requestId },
+    });
+    log.saida(requestId, metodo, "produtos-service", caminho, resposta.status, Date.now() - inicio);
+    return resposta;
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response) {
+      log.saida(requestId, metodo, "produtos-service", caminho, err.response.status, Date.now() - inicio);
+    } else {
+      const motivo = axios.isAxiosError(err) ? (err.code ?? err.message) : String(err);
+      log.saida(requestId, metodo, "produtos-service", caminho, "ERRO", Date.now() - inicio, motivo);
+    }
+    throw err;
+  }
+}
+
 /** GET /produtos/:id no produtos-service. */
 export async function buscarProduto(id: number, requestId: string): Promise<ProdutoRemoto> {
   try {
-    const resposta = await http.get<ProdutoRemoto>(`/produtos/${id}`, {
-      headers: cabecalhos(requestId),
-    });
+    const resposta = await chamar<ProdutoRemoto>(requestId, "GET", `/produtos/${id}`);
     return resposta.data;
   } catch (err) {
     if (axios.isAxiosError(err)) {
@@ -83,10 +111,11 @@ export async function baixarEstoque(
   requestId: string,
 ): Promise<ProdutoRemoto> {
   try {
-    const resposta = await http.post<ProdutoRemoto>(
+    const resposta = await chamar<ProdutoRemoto>(
+      requestId,
+      "POST",
       `/produtos/${id}/estoque/baixa`,
       { quantidade },
-      { headers: cabecalhos(requestId) },
     );
     return resposta.data;
   } catch (err) {
@@ -107,9 +136,5 @@ export async function devolverEstoque(
   quantidade: number,
   requestId: string,
 ): Promise<void> {
-  await http.post(
-    `/produtos/${id}/estoque/devolucao`,
-    { quantidade },
-    { headers: cabecalhos(requestId) },
-  );
+  await chamar(requestId, "POST", `/produtos/${id}/estoque/devolucao`, { quantidade });
 }
